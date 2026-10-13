@@ -31,6 +31,7 @@ import { ALL_MARKERS, type Markers } from './sections.js';
 import { mcpTargets, stripTomlSection } from './mcp-config.js';
 import { hookTargets } from './codex-hooks.js';
 import { antigravitySkillTargets } from './antigravity.js';
+import { ompHookTargets } from './omp-hooks.js';
 import { claudeGlobalTargets } from './claude-global.js';
 import { claudeTargets } from '../claude/init.js';
 import { isGraftAllowEntry, isGraftFooterRegex } from '../claude/settings-merge.js';
@@ -379,6 +380,7 @@ function targets(repo: string, opts: RetractOpts): Target[] {
   }
   if (exclude.has('agents')) for (const t of hookTargets(home)) keptPaths.add(t.path);
   if (exclude.has('antigravity')) for (const t of antigravitySkillTargets(home)) keptPaths.add(t.path);
+  if (exclude.has('omp')) for (const t of ompHookTargets(repo)) keptPaths.add(t.path);
 
   /** Queue a target unless a kept host owns that path, or it's already queued. */
   const seen = new Set<string>();
@@ -454,6 +456,11 @@ function targets(repo: string, opts: RetractOpts): Target[] {
     if (!exclude.has('antigravity')) {
       for (const t of antigravitySkillTargets(home)) {
         add({ hostId: t.hostId, path: t.path, what: t.what, scope: 'global', run: (a) => removeFile(t.path, a) });
+      }
+    }
+    if (!exclude.has('omp')) {
+      for (const t of ompHookTargets(repo)) {
+        add({ hostId: t.hostId, path: t.path, what: t.what, scope: 'repo', run: (a) => removeFile(t.path, a) });
       }
     }
   }

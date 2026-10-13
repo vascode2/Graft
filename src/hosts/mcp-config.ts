@@ -199,6 +199,16 @@ export function mcpTargets(
           scope: 'repo', kind: 'mcp', what: '[mcp_servers.graft]', format: 'toml',
         });
         break;
+      case 'omp':
+        // omp reads project-scoped MCP config from `.omp/mcp.json` (the primary
+        // path omp's config-writer emits and reads first). The project root is
+        // cwd-keyed, so it applies to every omp profile in this repo. One file
+        // only: `.omp/.mcp.json` is read too, but writing both duplicates Graft's
+        // server entry — retract.ts removes both keys in one pass either way.
+        out.push(
+          jsonTarget(id, id, join(repo, '.omp', 'mcp.json'), 'mcpServers', entry),
+        );
+        break;
       case 'agents':
         // Guarded on the CLI actually being installed, so a plan only ever
         // lists files a real run would touch.

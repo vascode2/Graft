@@ -121,6 +121,20 @@ export const HOSTS: HostTarget[] = [
     content: windsurfRule,
     detect: (p) => p.dirExists(join(p.home, '.codeium', 'windsurf')) || p.dirExists(join(p.repo, '.windsurf')),
   },
+  {
+    id: 'omp',
+    name: 'omp (oh-my-pi)',
+    kind: 'owned',
+    relPath: join('.omp', 'skills', 'graft', 'SKILL.md'),
+    content: skillTemplate,
+    // omp reads project `.omp/` config. Its user-level npm install also carries the
+    // skill (see src/omp/), so detection keys on either the user agent dir or the
+    // repo's own `.omp/` — a repo wired from the user level does not need the
+    // repo-local copy, but listing it keeps the picker honest.
+    detect: (p) =>
+      p.dirExists(join(p.home, '.omp', 'agent')) ||
+      p.dirExists(join(p.repo, '.omp')),
+  },
 ];
 
 export function hostIds(): string[] {

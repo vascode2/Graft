@@ -78,6 +78,7 @@ import { planInit, selectedWrites } from "./hosts/plan.js";
 import { planRetract, runRetract, changed, type Retraction } from "./hosts/retract.js";
 import { compactWrites, formatNonInteractiveHelp, formatPlan, runPicker } from "./cli-picker.js";
 import { buildGraphWithProgress } from "./claude/build-progress.js";
+import { ompHookTargets, installOmpHooks } from "./hosts/omp-hooks.js";
 import { homedir } from "node:os";
 import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, runUpgrade } from "./cli-meta.js";
 import { patchBuildConfig, type BuildConfig } from "./util/state.js";
@@ -1930,6 +1931,64 @@ brain
     const repo = resolve(dir);
     clearLink(resolve(dir));
     console.error(`✓ detached the brain from ${repo}`);
+  });
+
+/**
+ * `graft omp-init`: a one-command omp setup for a repo — wire the omp host
+ * (`--agents omp` equivalent), then register the graft MCP server and the
+ * extension hook in `.omp/`.
+ *
+ * Distinct from `graft init --agents omp` in two ways:
+ *   1. It never prompts or requires a TTY — a scripted run in an agent session
+ *      writes exactly one host's wiring with no picker round-trip.
+ *   2. The extension hook is part of the wiring: `runHostsInit` handles the
+ *      skill + MCP; this command adds the `.omp/extensions/graft-hooks.ts`
+ *      point all four omp lifecycle events bind to.
+ */
+program
+  .command("omp-init")
+  .description(
+    "Wire Graft into omp only — the omp skill, MCP registration, and the omp extension hooks. Never prompts.",
+  )
+  .argument("[dir]", "target repo directory", ".")
+  .option("--no-build", "wire files only; skip building the graph")
+  .option("--no-hooks", "skip the omp extension hook wiring (skill + MCP only)")
+  .option("--verbose", "print every file written")
+  .action(async (dirArg: string, opts: { build?: boolean; hooks?: boolean; verbose?: boolean }) => {
+    const repo = resolve(dirArg);
+    const home = homedir();
+    const ids = ["omp"];
+    const cliPathArg = fileURLToPath(import.meta.url);
+    const verbose = opts.verbose === true;
+    const say = (line: string) => console.error(line);
+
+    if (verbose) say(`· wiring ${repo}`);
+    const plan = planInit(repo, { home, ids });
+    const reports = [wireTarget(repo, ids, { home, cliPath: cliPathArg, plan, wantClaude: false, opts, quiet: !verbose })];
+    // Retracted / warning lines from a quiet wireTarget survive in the report.
+    for (const r of reports) {
+      for (const id of r.retracted) console.error(`- removed ${id} — agent not selected`);
+      for (const w of r.warnings) console.error(w);
+    }
+
+    // The omp extension hook: a single file under `.omp/extensions/` that binds
+    // the four lifecycle handlers (see src/omp/hooks.ts's factory doc for the
+    // event → hook-side mapping). The monkey-launch shim points at the installed
+    // package's compiled `dist/omp/hooks.js`; a `dist/` that does not exist yet
+    // means the build is stale, not that the wiring is wrong.
+    if (opts.hooks !== false) {
+      const targets = ompHookTargets(repo);
+      const writes = installOmpHooks(repo);
+      for (const t of targets) console.error(`  - ${relative(repo, t.path).split("\\").join("/")} (${t.what})`);
+      for (const w of writes) console.error(`  + ${relative(repo, w.path).split("\\").join("/")} (${w.action})`);
+    }
+
+    const res = await buildGraphWithProgress(repo, { build: opts.build !== false, cliPath: cliPathArg });
+    for (const m of res.messages) console.error(m);
+    if (res.graph) console.error(`✓ graph built · ${res.graph.nodes.toLocaleString("en-US")} nodes, ${res.graph.edges.toLocaleString("en-US")} edges`);
+
+    console.error("\n✓ omp wired. Restart omp (or `/reload`) in this repo to load the MCP server + hooks.");
+    console.error("  The graft skill is at .omp/skills/graft/SKILL.md — omp finds it on its next session start.");
   });
 
 program.parseAsync(withLegacyNames(process.argv)).catch((err) => {

@@ -1,5 +1,5 @@
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 // This module ships inside the package at <pkgRoot>/dist/claude/paths.js. Resolving graft's
 // own CLI and sibling scripts relative to THIS file — not the project dir — is what makes the
@@ -17,6 +17,12 @@ export function graftCliPath(): string {
  * without runtime guesswork — correct regardless of how Node was installed. */
 export function claudeDistDir(): string {
   return CLAUDE_DIR;
+}
+
+/** Absolute path to the package's `dist/` root — one level above {@link claudeDistDir},
+ * for shims that need a sibling compiled module (e.g. dist/omp/hooks.js). */
+export function distRootDir(): string {
+  return dirname(CLAUDE_DIR);
 }
 
 /** Absolute path to a sibling script in the claude dir (e.g. `sync-run.js`). */
