@@ -11,6 +11,7 @@ import { upsertSection } from './sections.js';
 import { registerMcpConfigs, type McpWrite } from './mcp-config.js';
 import { installCodexHooks } from './codex-hooks.js';
 import { installCursorHooks } from './cursor-hooks.js';
+import { installOmpHooks } from './omp-hooks.js';
 import type { ConfigWrite } from './config-write.js';
 import { installAntigravitySkill } from './antigravity.js';
 
@@ -94,5 +95,11 @@ export function runHostsInit(
     opts.global === false || !selected.some((h) => h.id === 'antigravity')
       ? []
       : installAntigravitySkill(home);
-  return { written, skipped, unknown, mcp, hooks: [...hooks, ...cursorHooks, ...antigravitySkill] };
+  // omp's hook shim is repo-local (.omp/extensions/), so only --no-hooks skips it —
+  // --no-global does NOT suppress it (the same posture Cursor's hooks have).
+  const ompHooks =
+    opts.hooks === false || !selected.some((h) => h.id === 'omp')
+      ? []
+      : installOmpHooks(repo);
+  return { written, skipped, unknown, mcp, hooks: [...hooks, ...cursorHooks, ...antigravitySkill, ...ompHooks] };
 }
